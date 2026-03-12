@@ -1,0 +1,107 @@
+@using System.Net
+@using TestBucket.Ntp.Core.Testing
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(IsNew ? "Add Client Rule" : $"Edit Rule – {Rule.ClientIpAddress}")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_isValid">
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField Label="Client IP Address"
+                                  @bind-Value="Rule.ClientIpAddress"
+                                  Disabled="@(!IsNew)"
+                                  Required="true"
+                                  RequiredError="IP address is required"
+                                  Validation="@((string s) => !IsNew || IPAddress.TryParse(s, out _) ? null : "Invalid IP address")"
+                                  Immediate="true" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudNumericField T="double"
+                                     Label="Time Offset (ms)"
+                                     Value="@Rule.TimeOffset.TotalMilliseconds"
+                                     ValueChanged="@(v => Rule.TimeOffset = TimeSpan.FromMilliseconds(v))"
+                                     Immediate="true" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudNumericField T="double"
+                                     Label="Response Delay (ms)"
+                                     Value="@Rule.ResponseDelay.TotalMilliseconds"
+                                     ValueChanged="@(v => Rule.ResponseDelay = TimeSpan.FromMilliseconds(v))"
+                                     Min="0"
+                                     Immediate="true" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudNumericField T="byte" Label="Stratum" @bind-Value="Rule.ResponseStratum" Min="0" Max="15" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudNumericField T="byte" Label="Mode" @bind-Value="Rule.ResponseMode" Min="0" Max="7" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudNumericField T="byte" Label="Leap Indicator" @bind-Value="Rule.ResponseLeapIndicator" Min="0" Max="3" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudNumericField T="sbyte" Label="Precision" @bind-Value="Rule.ResponsePrecision" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudNumericField T="uint" Label="Root Delay" @bind-Value="Rule.ResponseRootDelay" />
+                </MudItem>
+                <MudItem xs="4">
+                    <MudNumericField T="uint" Label="Root Dispersion" @bind-Value="Rule.ResponseRootDispersion" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudTextField Label="Reference Identifier"
+                                  Value="@GetRefId()"
+                                  ValueChanged="@((string s) => SetRefId(s))"
+                                  MaxLength="4"
+                                  HelperText="4-character ASCII identifier (e.g. LOCL)" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudNumericField T="byte?" Label="Version Override (optional)" @bind-Value="Rule.ResponseVersionNumber"
+                                     HelperText="Leave empty to use request version" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitAsync" Disabled="!_isValid">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public ClientRule Rule { get; set; } = null!;
+
+    [Parameter]
+    public bool IsNew { get; set; }
+
+    private MudForm _form = null!;
+    private bool _isValid;
+
+    private string GetRefId() =>
+        System.Text.Encoding.ASCII.GetString(Rule.ResponseResourceIdentifier).TrimEnd('\0');
+
+    private void SetRefId(string value)
+    {
+        var bytes = new byte[4];
+        var src = System.Text.Encoding.ASCII.GetBytes((value ?? string.Empty).PadRight(4));
+        Array.Copy(src, bytes, Math.Min(4, src.Length));
+        Rule.ResponseResourceIdentifier = bytes;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SubmitAsync()
+    {
+        await _form.ValidateAsync();
+        if (_isValid)
+        {
+            MudDialog.Close(DialogResult.Ok(Rule));
+        }
+    }
+}

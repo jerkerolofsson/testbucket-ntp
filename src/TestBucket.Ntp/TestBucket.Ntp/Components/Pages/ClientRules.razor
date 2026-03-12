@@ -1,0 +1,157 @@
+@page "/client-rules"
+@using System.Net
+@using TestBucket.Ntp.Core.Testing
+@inject IClientRuleRepository ClientRuleRepository
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Client Rules</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Client Rules</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenAddDialogAsync">
+        Add Rule
+    </MudButton>
+</MudStack>
+
+<MudDataGrid T="ClientRule"
+             Items="_rules"
+             SortMode="SortMode.Multiple"
+             Filterable="true"
+             Dense="true"
+             Hover="true"
+             Striped="true">
+    <Columns>
+        <PropertyColumn Property="x => x.ClientIpAddress" Title="Client IP" />
+        <TemplateColumn Title="Time Offset" Sortable="true">
+            <CellTemplate>
+                @FormatTimeSpan(context.Item.TimeOffset)
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Response Delay" Sortable="true">
+            <CellTemplate>
+                @FormatTimeSpan(context.Item.ResponseDelay)
+            </CellTemplate>
+        </TemplateColumn>
+        <PropertyColumn Property="x => x.ResponseStratum" Title="Stratum" />
+        <PropertyColumn Property="x => x.ResponseMode" Title="Mode" />
+        <TemplateColumn Title="Ref ID" Sortable="false" Filterable="false">
+            <CellTemplate>
+                <code>@System.Text.Encoding.ASCII.GetString(context.Item.ResponseResourceIdentifier)</code>
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="" Sortable="false" Filterable="false">
+            <CellTemplate>
+                <MudStack Row="true" Spacing="0">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   Title="Edit"
+                                   OnClick="() => OpenEditDialogAsync(context.Item)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error"
+                                   Size="Size.Small"
+                                   Title="Delete"
+                                   OnClick="() => DeleteRuleAsync(context.Item)" />
+                </MudStack>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText>No client rules defined.</MudText>
+    </NoRecordsContent>
+</MudDataGrid>
+
+@code {
+    private List<ClientRule> _rules = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRulesAsync();
+    }
+
+    private async Task LoadRulesAsync()
+    {
+        var rules = await ClientRuleRepository.BrowseAsync(0, 1000);
+        _rules = [.. rules];
+    }
+
+    private async Task OpenAddDialogAsync()
+    {
+        var rule = new ClientRule { ClientIpAddress = string.Empty };
+        var parameters = new DialogParameters<ClientRuleEditDialog>
+        {
+            { x => x.Rule, rule },
+            { x => x.IsNew, true }
+        };
+        var dialog = await DialogService.ShowAsync<ClientRuleEditDialog>("Add Client Rule", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: ClientRule saved })
+        {
+            await ClientRuleRepository.AddClientRuleAsync(saved);
+            await LoadRulesAsync();
+            Snackbar.Add($"Rule for {saved.ClientIpAddress} added.", Severity.Success);
+        }
+    }
+
+    private async Task OpenEditDialogAsync(ClientRule rule)
+    {
+        var clone = CloneRule(rule);
+        var parameters = new DialogParameters<ClientRuleEditDialog>
+        {
+            { x => x.Rule, clone },
+            { x => x.IsNew, false }
+        };
+        var dialog = await DialogService.ShowAsync<ClientRuleEditDialog>("Edit Client Rule", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: ClientRule saved })
+        {
+            await ClientRuleRepository.AddClientRuleAsync(saved);
+            await LoadRulesAsync();
+            Snackbar.Add($"Rule for {saved.ClientIpAddress} updated.", Severity.Success);
+        }
+    }
+
+    private async Task DeleteRuleAsync(ClientRule rule)
+    {
+        var parameters = new DialogParameters<MudMessageBox>
+        {
+            { x => x.MarkupMessage, (MarkupString)$"Delete the rule for <strong>{rule.ClientIpAddress}</strong>?" },
+            { x => x.YesText, "Delete" },
+            { x => x.CancelText, "Cancel" }
+        };
+        var dialog = await DialogService.ShowAsync<MudMessageBox>("Delete Rule?", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall });
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            await ClientRuleRepository.RemoveClientRuleAsync(rule);
+            await LoadRulesAsync();
+            Snackbar.Add($"Rule for {rule.ClientIpAddress} deleted.", Severity.Info);
+        }
+    }
+
+    private static string FormatTimeSpan(TimeSpan ts) =>
+        ts == TimeSpan.Zero ? "0 ms" : $"{ts.TotalMilliseconds:F1} ms";
+
+    private static ClientRule CloneRule(ClientRule r) => new()
+    {
+        ClientIpAddress = r.ClientIpAddress,
+        ResponseDelay = r.ResponseDelay,
+        TimeOffset = r.TimeOffset,
+        ResponseResourceIdentifier = [.. r.ResponseResourceIdentifier],
+        ResponseMode = r.ResponseMode,
+        ResponseLeapIndicator = r.ResponseLeapIndicator,
+        ResponseVersionNumber = r.ResponseVersionNumber,
+        ResponseStratum = r.ResponseStratum,
+        ResponsePrecision = r.ResponsePrecision,
+        ResponseRootDelay = r.ResponseRootDelay,
+        ResponseRootDispersion = r.ResponseRootDispersion,
+        ResponsePollInterval = r.ResponsePollInterval,
+        ResponseTransmitTimestamp = r.ResponseTransmitTimestamp,
+    };
+}

@@ -1,0 +1,15 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.1.0">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>699a0dad-4357-4c6f-a72b-6109bf4abbc6</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TestBucket.Ntp\TestBucket.Ntp.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/Aspire/">
+    <Project Path="TestBucket.Ntp.AppHost/TestBucket.Ntp.AppHost.csproj" />
+    <Project Path="TestBucket.Ntp.ServiceDefaults/TestBucket.Ntp.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/CLI/">
+    <Project Path="TestBucket.Ntp.Cli/TestBucket.Ntp.Cli.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="../../tests/TestBucket.Ntp.Core.IntegrationTests/TestBucket.Ntp.Core.IntegrationTests.csproj" />
+    <Project Path="../../tests/TestBucket.Ntp.Core.UnitTests/TestBucket.Ntp.Core.UnitTests.csproj" />
+  </Folder>
+  <Project Path="TestBucket.Ntp.Core/TestBucket.Ntp.Core.csproj" />
+  <Project Path="TestBucket.Ntp/TestBucket.Ntp.csproj" />
+</Solution>

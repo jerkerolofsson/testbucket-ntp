@@ -1,0 +1,34 @@
+﻿@page "/"
+@using TestBucket.Ntp.Core.Server
+@implements IDisposable
+@inject NtpServer ntpServer
+
+<PageTitle>testbucket-ntp</PageTitle>
+
+<h4>Recent NTP Queries</h4>
+<NtpQueryEventTable Events="_ntpQueryEvents" />
+
+@code {
+
+    private readonly LinkedList<NtpQueryEvent> _ntpQueryEvents = [];
+
+    protected override void OnInitialized()
+    {
+        ntpServer.QueryEvent += HandleQueryEvent;
+    }
+
+    public void Dispose()
+    {
+        ntpServer.QueryEvent -= HandleQueryEvent;
+    }
+
+    public void HandleQueryEvent(object? sender, NtpQueryEvent ntpQueryEvent)
+    {
+        if(_ntpQueryEvents.Count >= 100)
+        {
+            _ntpQueryEvents.RemoveLast();
+        }
+        _ntpQueryEvents.AddFirst(ntpQueryEvent);
+        InvokeAsync(StateHasChanged);
+    }
+}

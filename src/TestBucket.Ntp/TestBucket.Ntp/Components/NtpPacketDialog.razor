@@ -1,0 +1,217 @@
+@using TestBucket.Ntp.Core.Protocol
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Title</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (Packet is not null)
+        {
+            <MudTable T="PacketField" Items="@GetFields()" Dense="true" Striped="true" Hover="false" Elevation="0">
+                <HeaderContent>
+                    <MudTh>Offset</MudTh>
+                    <MudTh>Bits</MudTh>
+                    <MudTh>Field</MudTh>
+                    <MudTh>Hex</MudTh>
+                    <MudTh>Value</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Offset" Class="font-monospace">@context.Offset</MudTd>
+                    <MudTd DataLabel="Bits">@context.Bits</MudTd>
+                    <MudTd DataLabel="Field"><strong>@context.Name</strong></MudTd>
+                    <MudTd DataLabel="Hex" Class="font-monospace">@context.Hex</MudTd>
+                    <MudTd DataLabel="Value">@context.Value</MudTd>
+                </RowTemplate>
+            </MudTable>
+
+            @if (Data is { Length: > 0 })
+            {
+                <MudText Typo="Typo.subtitle2" Class="mt-4 mb-1">Raw Bytes (@Data.Length bytes)</MudText>
+                <MudPaper Class="pa-3" Elevation="0" Style="background: var(--mud-palette-background-grey); overflow-x: auto;">
+                    <pre style="margin: 0; font-size: 0.75rem;">@GetHexDump()</pre>
+                </MudPaper>
+            }
+        }
+        else
+        {
+            <MudText>No packet data available.</MudText>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public string Title { get; set; } = "NTP Packet";
+
+    [Parameter]
+    public NtpPacket? Packet { get; set; }
+
+    [Parameter]
+    public byte[]? Data { get; set; }
+
+    private record PacketField(string Offset, string Bits, string Name, string Hex, string Value);
+
+    private void Close() => MudDialog.Close();
+
+    private string GetHexDump()
+    {
+        if (Data is null || Data.Length == 0) return string.Empty;
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < Data.Length; i += 16)
+        {
+            sb.Append($"{i:X4}  ");
+            for (int j = 0; j < 16; j++)
+            {
+                if (i + j < Data.Length)
+                    sb.Append($"{Data[i + j]:X2} ");
+                else
+                    sb.Append("   ");
+                if (j == 7) sb.Append(' ');
+            }
+            sb.Append(' ');
+            for (int j = 0; j < 16 && i + j < Data.Length; j++)
+            {
+                var b = Data[i + j];
+                sb.Append(b >= 32 && b < 127 ? (char)b : '.');
+            }
+            sb.AppendLine();
+        }
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string FormatNtpTimestamp(ulong ts)
+    {
+        if (ts == 0) return "0 (not set)";
+        try
+        {
+            var seconds = ts >> 32;
+            var fraction = (ts & 0xFFFFFFFF) / 4294967296.0;
+            var epoch = new DateTimeOffset(1900, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            var dt = epoch.AddSeconds(seconds + fraction);
+            return $"{dt:yyyy-MM-dd HH:mm:ss.fff} UTC";
+        }
+        catch
+        {
+            return $"0x{ts:X16}";
+        }
+    }
+
+    private static string FormatReferenceId(uint refId)
+    {
+        byte b0 = (byte)(refId >> 24);
+        byte b1 = (byte)(refId >> 16);
+        byte b2 = (byte)(refId >> 8);
+        byte b3 = (byte)refId;
+        if (IsAsciiPrintableOrNull(b0) && IsAsciiPrintableOrNull(b1) && IsAsciiPrintableOrNull(b2) && IsAsciiPrintableOrNull(b3))
+        {
+            var bytes = new byte[] { b0, b1, b2, b3 };
+            return System.Text.Encoding.ASCII.GetString(bytes).TrimEnd('\0');
+        }
+        return $"0x{refId:X8}";
+    }
+
+    private static bool IsAsciiPrintableOrNull(byte b) => b == 0 || (b >= 32 && b < 127);
+
+    private IEnumerable<PacketField> GetFields()
+    {
+        if (Packet is null) yield break;
+
+        string GetHex(int offset, int count)
+        {
+            if (Data is null || Data.Length <= offset) return "??";
+            var sb = new System.Text.StringBuilder();
+            var end = Math.Min(offset + count, Data.Length);
+            for (int i = offset; i < end; i++)
+            {
+                if (i > offset) sb.Append(' ');
+                sb.Append($"{Data[i]:X2}");
+            }
+            return sb.ToString();
+        }
+
+        byte byte0 = Data is { Length: > 0 } ? Data[0]
+            : (byte)((Packet.LeapIndicator << 6) | (Packet.VersionNumber << 3) | Packet.Mode);
+
+        yield return new PacketField("0 [7:6]", "2", "Leap Indicator (LI)",
+            $"0x{(byte0 >> 6) & 0x3:X}",
+            Packet.LeapIndicator switch
+            {
+                0 => "0 – No warning",
+                1 => "1 – Last minute has 61 seconds",
+                2 => "2 – Last minute has 59 seconds",
+                3 => "3 – Alarm condition (clock not synchronized)",
+                _ => Packet.LeapIndicator.ToString()
+            });
+
+        yield return new PacketField("0 [5:3]", "3", "Version Number (VN)",
+            $"0x{(byte0 >> 3) & 0x7:X}",
+            $"NTP v{Packet.VersionNumber}");
+
+        yield return new PacketField("0 [2:0]", "3", "Mode",
+            $"0x{byte0 & 0x7:X}",
+            Packet.Mode switch
+            {
+                0 => "0 – Reserved",
+                1 => "1 – Symmetric Active",
+                2 => "2 – Symmetric Passive",
+                3 => "3 – Client",
+                4 => "4 – Server",
+                5 => "5 – Broadcast",
+                6 => "6 – NTP Control",
+                7 => "7 – Private",
+                _ => Packet.Mode.ToString()
+            });
+
+        yield return new PacketField("1", "8", "Stratum",
+            GetHex(1, 1),
+            Packet.Stratum switch
+            {
+                0 => "0 – Unspecified or unavailable",
+                1 => "1 – Primary reference",
+                _ when Packet.Stratum <= 15 => $"{Packet.Stratum} – Secondary reference",
+                _ => $"{Packet.Stratum} – Reserved"
+            });
+
+        yield return new PacketField("2", "8", "Poll Interval",
+            GetHex(2, 1),
+            $"{Packet.PollInterval} (≈ {Math.Pow(2, Packet.PollInterval):0} s)");
+
+        yield return new PacketField("3", "8", "Precision",
+            GetHex(3, 1),
+            $"{Packet.Precision} (2^{Packet.Precision} ≈ {Math.Pow(2, Packet.Precision) * 1_000_000:0.###} µs)");
+
+        yield return new PacketField("4–7", "32", "Root Delay",
+            GetHex(4, 4),
+            $"0x{Packet.RootDelay:X8} ({Packet.RootDelay / 65536.0:F4} s)");
+
+        yield return new PacketField("8–11", "32", "Root Dispersion",
+            GetHex(8, 4),
+            $"0x{Packet.RootDispersion:X8} ({Packet.RootDispersion / 65536.0:F4} s)");
+
+        yield return new PacketField("12–15", "32", "Reference Identifier",
+            GetHex(12, 4),
+            FormatReferenceId(Packet.ReferenceIdentifier));
+
+        yield return new PacketField("16–23", "64", "Reference Timestamp",
+            GetHex(16, 8),
+            FormatNtpTimestamp(Packet.ReferenceTimestamp));
+
+        yield return new PacketField("24–31", "64", "Originate Timestamp (T1)",
+            GetHex(24, 8),
+            FormatNtpTimestamp(Packet.OriginateTimestamp));
+
+        yield return new PacketField("32–39", "64", "Receive Timestamp (T2)",
+            GetHex(32, 8),
+            FormatNtpTimestamp(Packet.ReceiveTimestamp));
+
+        yield return new PacketField("40–47", "64", "Transmit Timestamp (T3)",
+            GetHex(40, 8),
+            FormatNtpTimestamp(Packet.TransmitTimestamp));
+    }
+}

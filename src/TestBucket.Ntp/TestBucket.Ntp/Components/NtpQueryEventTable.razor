@@ -1,0 +1,75 @@
+@using System.Net
+@using TestBucket.Ntp.Core.Protocol
+@using TestBucket.Ntp.Core.Server
+@inject IDialogService DialogService
+
+<MudTable T="NtpQueryEvent" Items="Events" Dense="true" Striped="true" Hover="true" Elevation="1" Class="font-monospace">
+    <HeaderContent>
+        <MudTh>Time (UTC)</MudTh>
+        <MudTh>Client</MudTh>
+        <MudTh>Version</MudTh>
+        <MudTh>Mode</MudTh>
+        <MudTh>Stratum</MudTh>
+        <MudTh>Request</MudTh>
+        <MudTh>Response</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Time (UTC)">@context.Created.UtcDateTime.ToString("HH:mm:ss.fff")</MudTd>
+        <MudTd DataLabel="Client">@context.ClientAddress</MudTd>
+        <MudTd DataLabel="Version">@context.Request.VersionNumber</MudTd>
+        <MudTd DataLabel="Mode">@GetModeName(context.Request.Mode)</MudTd>
+        <MudTd DataLabel="Stratum">@(context.Response?.Stratum.ToString() ?? "-")</MudTd>
+        <MudTd DataLabel="Request">
+            <MudButton Variant="Variant.Text" Size="Size.Small"
+                       OnClick="@(() => ShowPacketDialogAsync("Request", context.Request, context.RequestData))">
+                @context.RequestData.Length B
+            </MudButton>
+        </MudTd>
+        <MudTd DataLabel="Response">
+            @if (context.Response is not null)
+            {
+                <MudButton Variant="Variant.Text" Size="Size.Small"
+                           OnClick="@(() => ShowPacketDialogAsync("Response", context.Response, context.ResponseData))">
+                    @context.ResponseData.Length B
+                </MudButton>
+            }
+            else
+            {
+                <span>-</span>
+            }
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>No NTP queries received yet.</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    [Parameter, EditorRequired]
+    public IEnumerable<NtpQueryEvent> Events { get; set; } = [];
+
+    private async Task ShowPacketDialogAsync(string direction, NtpPacket packet, byte[] data)
+    {
+        var parameters = new DialogParameters<NtpPacketDialog>
+        {
+            { x => x.Title, $"NTP {direction} – {data.Length} bytes" },
+            { x => x.Packet, packet },
+            { x => x.Data, data }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true };
+        await DialogService.ShowAsync<NtpPacketDialog>($"NTP {direction}", parameters, options);
+    }
+
+    private static string GetModeName(byte mode) => mode switch
+    {
+        0 => "Reserved",
+        1 => "Sym. Active",
+        2 => "Sym. Passive",
+        3 => "Client",
+        4 => "Server",
+        5 => "Broadcast",
+        6 => "NTP Control",
+        7 => "Private",
+        _ => mode.ToString()
+    };
+}
