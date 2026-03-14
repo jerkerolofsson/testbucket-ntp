@@ -9,12 +9,15 @@ namespace TestBucket.Ntp.Core.Testing
     {
         private readonly Dictionary<string, ClientRule> _rules = new();
         private readonly object _lock = new();
-        private readonly string _dataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "test-bucket",
-                "ntp",
-                "client-rules"
-                );
+        private readonly string _dataFolder =
+            OperatingSystem.IsLinux()
+                ? "/var/tb-ntp/client-rules"
+                : Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "test-bucket",
+                    "ntp",
+                    "client-rules"
+                    );
 
         public FileSystemClientRuleRepository(ILogger<FileSystemClientRuleRepository> logger)
         {
