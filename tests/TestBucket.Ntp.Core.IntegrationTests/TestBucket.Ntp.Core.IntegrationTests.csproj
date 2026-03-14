@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\TestBucket.Ntp\TestBucket.Ntp.Core\TestBucket.Ntp.Core.csproj" />
+    <ProjectReference Include="..\..\src\TestBucket.Ntp.Core\TestBucket.Ntp.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

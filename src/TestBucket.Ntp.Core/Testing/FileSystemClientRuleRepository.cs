@@ -1,22 +1,25 @@
 ﻿using System.Net;
 using System.Text.Json;
 
+using Microsoft.Extensions.Logging;
+
 namespace TestBucket.Ntp.Core.Testing
 {
     public class FileSystemClientRuleRepository : IClientRuleRepository
     {
         private readonly Dictionary<string, ClientRule> _rules = new();
         private readonly object _lock = new();
-        private string _dataFolder = Path.Combine(
+        private readonly string _dataFolder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "test-bucket",
                 "ntp",
                 "client-rules"
                 );
 
-        public FileSystemClientRuleRepository()
+        public FileSystemClientRuleRepository(ILogger<FileSystemClientRuleRepository> logger)
         {
             Directory.CreateDirectory(_dataFolder);
+            logger.LogInformation("Initialized FileSystemClientRuleRepository with data folder: {DataFolder}", _dataFolder);
             LoadRulesFromFileSystem();
         }
 

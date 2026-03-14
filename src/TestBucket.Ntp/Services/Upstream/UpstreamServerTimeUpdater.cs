@@ -15,7 +15,8 @@ namespace TestBucket.Ntp.Services.Upstream
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            string upstreamServer = "time.windows.com";
+            string upstreamServer = Environment.GetEnvironmentVariable("NTP_UPSTREAM_SERVER") ?? "pool.ntp.org";
+
             var client = new NtpClient();
 
             while(!stoppingToken.IsCancellationRequested)

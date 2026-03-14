@@ -1,3 +1,16 @@
+html, body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    /*    --mud-typography-subtitle1-size: 7pt;*/
+
+    --mud-palette-primary: #258cfb;
+    --mud-palette-appbar-background: var(--mud-palette-primary);
+    --mud-palette-primary-lighten: #359cff;
+    --mud-palette-primary-darken: #157ceb;
+    --mud-palette-secondary: #157ceb;
+    --mud-palette-secondary-rgb: #157ceb;
+    --mud-palette-secondary-lighten: #258cfb;
+    --mud-palette-secondary-darken: #056cdb;
+}
 h1:focus {
     outline: none;
 }
